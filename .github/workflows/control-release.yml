@@ -41,9 +41,11 @@ jobs:
           - os: macos-latest
             arch: arm64
             platform: darwin
+            builder: mac
           - os: windows-latest
             arch: x64
             platform: win32
+            builder: win
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repository
@@ -89,7 +91,8 @@ jobs:
       - name: Package Electron app
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npx electron-builder --${{ matrix.platform }} dir --${{ matrix.arch }} --publish never
+        # electron-builder 只认 mac / win / linux，不是 process.platform 的 darwin / win32
+        run: npx electron-builder --${{ matrix.builder }} dir --${{ matrix.arch }} --publish never
 
       - name: Collect artifacts
         shell: bash
