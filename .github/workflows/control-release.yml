@@ -1,0 +1,163 @@
+name: Build Control Plane Release
+
+# 打包带 CLI / MCP 控制平面的 Folia，产物直传 GitHub Release。
+# 与 electron-release.yml（realeco）不同：这个 workflow 由 workflow_dispatch 手动触发，
+# 不依赖 realeco-release 版本戳，也不发 AUR / Docker / 更新通道，只做「桌面包 + Release」。
+#
+# 为什么必须用 matrix runner 原生构建：
+#   - build/buildMnnRuntime.mjs 明确拒绝跨平台编译 MNN（Windows 的 folia_mnn.dll 需要 MSVC）；
+#   - packaging/windows/build-wallpaper-helper.mjs 只在 win32 主机上跑（Rust + MSVC 目标）；
+#   - packaging/linux/build-windowtolayer.mjs 只在 Linux 主机上跑。
+# 所以 mac 包在 macos-latest 上打，win 包在 windows-latest 上打。
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish under (e.g. control-v1.0.0). Leave empty to use v<package version>-control.<run>'
+        required: false
+        type: string
+      draft:
+        description: 'Create the release as a draft'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: control-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            arch: arm64
+            platform: darwin
+          - os: windows-latest
+            arch: x64
+            platform: win32
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Download Electron binary (postinstall was skipped)
+        run: node node_modules/electron/install.js
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Windows wallpaper helper
+        if: runner.os == 'Windows'
+        run: npm run build:wallpaper-helper
+
+      - name: Cache MNN runtime build
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/.mnn-src
+            build/mnn
+          key: control-mnn-${{ runner.os }}-${{ hashFiles('build/buildMnnRuntime.mjs', 'native/folia-mnn/**') }}
+
+      - name: Build renderer bundle
+        env:
+          ELECTRON_DEV: 'false'
+          ELECTRON: 'true'
+          # 打包版默认关闭控制 server；用户启动时设 FOLIA_CONTROL=1 开启（见 control/README.md）
+          FOLIA_CONTROL: '0'
+        run: npx vite build
+
+      - name: Package Electron app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --${{ matrix.platform }} dir --${{ matrix.arch }} --publish never
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            cp -R "release/mac-${{ matrix.arch }}/Folia.app" "artifacts/Folia-${{ matrix.arch }}.app" 2>/dev/null || true
+            for f in release/*.dmg release/*.zip; do
+              [ -e "$f" ] && cp "$f" artifacts/ || true
+            done
+          else
+            for f in release/*.exe release/*.blockmap; do
+              [ -e "$f" ] && cp "$f" artifacts/ || true
+            done
+          fi
+          ls -la artifacts
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: folia-${{ matrix.platform }}-${{ matrix.arch }}
+          path: artifacts/*
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: dist-artifacts
+          merge-multiple: true
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            VERSION=$(node -p "require('./package.json').version")
+            echo "tag=v${VERSION}-control.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release and upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          ARGS=(--title "Folia ${TAG#v} · CLI / MCP 控制平面" --target "$GITHUB_SHA")
+          if [ "${{ inputs.draft }}" = "true" ]; then ARGS+=(--draft); fi
+          gh release create "$TAG" dist-artifacts/* "${ARGS[@]}" \
+            --notes "带 CLI / MCP 控制平面的 Folia 构建。
+
+## 这个版本多了什么
+
+- 46 个控制工具（搜歌、播放、传输、音量、队列、歌词、歌词动画/背景、主题、设置、本地库、窗口、截图、事件流）
+- 命令面板直通：可执行应用内全部 246 条命令
+- CLI：\`node resources/app.asar.unpacked/control/cli.mjs status\`
+- MCP：stdio（\`node control/mcp.mjs\`）与 HTTP（\`POST /mcp\`）
+
+## 怎么启用
+
+控制 server 默认关闭。启动前注入环境变量：
+
+- macOS: \`FOLIA_CONTROL=1 /Applications/Folia.app/Contents/MacOS/Folia\`
+- Windows: \`set FOLIA_CONTROL=1 && Folia.exe\`
+
+连接信息（端口与 token）在 \`<userData>/control-server.json\`。
+完整说明见仓库 [control/README.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/control/README.md)。"

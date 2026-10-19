@@ -83,8 +83,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "chthollyphile",
-        "repo": "folia-major"
+        "owner": "rfdiosuao",
+        "repo": "folia-qishui"
       }
     ],
     "files": [
@@ -153,6 +153,10 @@
           "windowtolayer",
           "windowtolayer-COPYING"
         ]
+      },
+      {
+        "from": "control",
+        "to": "control"
       }
     ],
     "mac": {
