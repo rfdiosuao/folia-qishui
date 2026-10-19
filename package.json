@@ -60,7 +60,11 @@
     "contributors:add": "npx all-contributors-cli add",
     "contributors:generate": "npx all-contributors-cli generate",
     "models:fetch": "node build/fetchModels.mjs",
-    "manual:ai-probe": "node test/manual/ai_probe.mjs"
+    "manual:ai-probe": "node test/manual/ai_probe.mjs",
+    "control": "node control/cli.mjs",
+    "control:mcp": "node control/mcp.mjs",
+    "control:e2e": "node control/test/e2e.mjs",
+    "test:control": "vitest run -c vitest.config.ts test/unit/control"
   },
   "build": {
     "appId": "top.izuna.foliamajor",
@@ -90,7 +94,9 @@
       "!**/node_modules/youtubei.js/bundle/**",
       "package.json",
       "build/miao.png",
-      "build/thumbar/*.png"
+      "build/thumbar/*.png",
+      "control/**/*",
+      "control/package.json"
     ],
     "asarUnpack": [
       "node_modules/@koromix/koffi-*/**/*.node",
@@ -173,23 +179,15 @@
         }
       ],
       "icon": "build/icon.png",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
     },
     "win": {
-      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "artifactName": "${productName}-${version}-win-${arch}-Setup.${ext}",
       "target": [
         "nsis"
       ],
       "icon": "build/icon.png",
-      "extraResources": [
-        {
-          "from": "build",
-          "to": ".",
-          "filter": [
-            "folia-wallpaper-helper.exe"
-          ]
-        }
-      ]
+      "extraResources": []
     },
     "nsis": {
       "oneClick": false,

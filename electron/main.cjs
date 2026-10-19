@@ -5580,6 +5580,13 @@ async function setMainWindowTransparentModeFromRemote(enabled) {
   return setMainWindowTransparentMode(enabled, handoff);
 }
 
+// Local control server (control/PROTOCOL.md): off by default, started once after the first
+// createWindow() so the renderer bridge exists. Packaged builds need FOLIA_CONTROL=1 explicitly;
+// the dev server starts it unless FOLIA_CONTROL=0 opts out.
+let controlServer = null;
+const controlServerEnabled = process.env.FOLIA_CONTROL === '1'
+  || (process.env.ELECTRON_DEV === 'true' && process.env.FOLIA_CONTROL !== '0');
+
 app.whenReady().then(async () => {
   applyTileMemoryBudget(app, screen);
   const startupResult = await mainProcessStartupPromise;
@@ -5680,6 +5687,15 @@ app.whenReady().then(async () => {
     }
   }
   createWindow();
+  if (controlServerEnabled) {
+    try {
+      const { startControlServer } = require('./controlServer.cjs');
+      controlServer = await startControlServer({ app, getWindow: () => mainWindow });
+    } catch (error) {
+      // The control plane is optional: a failure here must never keep the app from starting.
+      console.warn('[Control] Failed to start control server:', error);
+    }
+  }
   focusMainWindow();
   if (process.env.FOLIA_PENDING_DESKTOP_LYRIC === '1') {
     delete process.env.FOLIA_PENDING_DESKTOP_LYRIC;
@@ -5957,6 +5973,11 @@ app.on('before-quit', (event) => {
   void discordPresence.destroy();
   void qqBackend.stop();
   void lyricApi.stop();
+});
+
+// Local control server: stop accepting requests on the way out (see control/PROTOCOL.md §3.3).
+app.on('will-quit', () => {
+  void controlServer?.stop?.();
 });
 
 // Settings Management IPC
