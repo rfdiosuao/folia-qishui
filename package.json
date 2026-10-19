@@ -157,6 +157,10 @@
       {
         "from": "control",
         "to": "control"
+      },
+      {
+        "from": "shared",
+        "to": "shared"
       }
     ],
     "mac": {
