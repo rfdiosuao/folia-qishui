@@ -136,29 +136,34 @@ jobs:
             echo "tag=v${VERSION}-control.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Write release notes
+        run: |
+          {
+            echo "带 CLI / MCP 控制平面的 Folia 构建。"
+            echo
+            echo "## 这个版本多了什么"
+            echo
+            echo "- 46 个控制工具（搜歌、播放、传输、音量、队列、歌词、歌词动画/背景、主题、设置、本地库、窗口、截图、事件流）"
+            echo "- 命令面板直通：可执行应用内全部 246 条命令"
+            echo '- CLI：`node resources/control/cli.mjs status`'
+            echo '- MCP：stdio（`node resources/control/mcp.mjs`）与 HTTP（`POST /mcp`）'
+            echo
+            echo "## 怎么启用"
+            echo
+            echo "控制 server 默认关闭。启动前注入环境变量："
+            echo
+            echo '- macOS: `FOLIA_CONTROL=1 /Applications/Folia.app/Contents/MacOS/Folia`'
+            echo '- Windows: `set FOLIA_CONTROL=1 && Folia.exe`'
+            echo
+            echo "连接信息（端口与 token）在 \`<userData>/control-server.json\`。"
+            echo "完整说明见仓库 control/README.md。"
+          } > release-notes.md
+
       - name: Create release and upload assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
-          ARGS=(--title "Folia ${TAG#v} · CLI / MCP 控制平面" --target "$GITHUB_SHA")
+          ARGS=(--title "Folia ${TAG#v} · CLI / MCP 控制平面" --target "$GITHUB_SHA" --notes-file release-notes.md)
           if [ "${{ inputs.draft }}" = "true" ]; then ARGS+=(--draft); fi
-          gh release create "$TAG" dist-artifacts/* "${ARGS[@]}" \
-            --notes "带 CLI / MCP 控制平面的 Folia 构建。
-
-## 这个版本多了什么
-
-- 46 个控制工具（搜歌、播放、传输、音量、队列、歌词、歌词动画/背景、主题、设置、本地库、窗口、截图、事件流）
-- 命令面板直通：可执行应用内全部 246 条命令
-- CLI：\`node resources/app.asar.unpacked/control/cli.mjs status\`
-- MCP：stdio（\`node control/mcp.mjs\`）与 HTTP（\`POST /mcp\`）
-
-## 怎么启用
-
-控制 server 默认关闭。启动前注入环境变量：
-
-- macOS: \`FOLIA_CONTROL=1 /Applications/Folia.app/Contents/MacOS/Folia\`
-- Windows: \`set FOLIA_CONTROL=1 && Folia.exe\`
-
-连接信息（端口与 token）在 \`<userData>/control-server.json\`。
-完整说明见仓库 [control/README.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/control/README.md)。"
+          gh release create "$TAG" dist-artifacts/* "${ARGS[@]}"
