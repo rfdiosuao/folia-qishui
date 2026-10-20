@@ -890,3 +890,63 @@ async function startControlServer(options = {}) {
 }
 
 module.exports = { startControlServer };
+
+// ---------------------------------------------------------------------------------------------
+// Lifecycle for the settings page: a persisted switch, the running instance, its status, and the
+// token. main.cjs owns the process-wide instance; these helpers keep the IPC handlers thin.
+// ---------------------------------------------------------------------------------------------
+
+const ENABLED_SETTING_KEY = 'CONTROL_SERVER_ENABLED';
+
+/** The stored switch, or the environment default when nothing has been chosen yet. */
+function isControlServerEnabled(store) {
+    const stored = store?.get?.(ENABLED_SETTING_KEY);
+    if (typeof stored === 'boolean') {
+        return stored;
+    }
+    // Nothing stored yet: the environment decides, exactly as before this switch existed.
+    return process.env.FOLIA_CONTROL === '1'
+        || (process.env.ELECTRON_DEV === 'true' && process.env.FOLIA_CONTROL !== '0');
+}
+
+function readStoredToken(dataDir) {
+    try {
+        const stored = fs.readFileSync(path.join(dataDir, TOKEN_FILE_NAME), 'utf8').trim();
+        return stored || null;
+    } catch {
+        return null;
+    }
+}
+
+/** What the settings page shows: whether it is on, where it listens, and the token to copy. */
+function buildControlStatus(dataDir, instance) {
+    const running = Boolean(instance);
+    return {
+        enabled: running,
+        running,
+        url: instance?.url ?? null,
+        port: instance?.port ?? null,
+        token: instance?.token ?? readStoredToken(dataDir),
+        tokenFile: path.join(dataDir, TOKEN_FILE_NAME),
+        dataDir,
+        controlCliPath: path.join(process.resourcesPath ?? '', 'control', 'cli.mjs'),
+        controlMcpPath: path.join(process.resourcesPath ?? '', 'control', 'mcp.mjs'),
+        allowEval: process.env.FOLIA_CONTROL_ALLOW_EVAL === '1',
+        error: null,
+    };
+}
+
+/** Replaces the token file with a fresh 32-byte hex token and returns it. */
+function regenerateControlToken(dataDir) {
+    const token = crypto.randomBytes(32).toString('hex');
+    writeFilePrivate(path.join(dataDir, TOKEN_FILE_NAME), token);
+    return token;
+}
+
+module.exports = {
+    startControlServer,
+    isControlServerEnabled,
+    buildControlStatus,
+    regenerateControlToken,
+    ENABLED_SETTING_KEY,
+};

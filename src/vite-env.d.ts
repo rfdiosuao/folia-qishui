@@ -2,6 +2,21 @@
 
 import type { ModClearCacheResult, ModExportProgress, ModFfmpegStatus, ModLogEntry, ModMainCallStats, ModRuntimeInfo, ModRuntimeSnapshot, ModStorageUsageResult } from './mods/types';
 
+/** 设置 -> 连接与集成 -> AI 控制：控制服务的开关、地址、令牌与 CLI/MCP 路径。 */
+export type ControlServerStatus = {
+  enabled: boolean;
+  running: boolean;
+  url: string | null;
+  port: number | null;
+  token: string | null;
+  tokenFile: string;
+  dataDir: string;
+  controlCliPath: string;
+  controlMcpPath: string;
+  allowEval: boolean;
+  error: string | null;
+};
+
 declare global {
   const __COMMIT_HASH__: string;
   const __GIT_BRANCH__: string;
@@ -989,6 +1004,10 @@ declare global {
       appendVideoExportChunk: (sessionId: string, data: ArrayBuffer) => Promise<number>;
       finishVideoExportFile: (sessionId: string) => Promise<{ filePath: string; bytesWritten: number; finalized: boolean }>;
       abortVideoExportFile: (sessionId: string) => Promise<boolean>;
+      // 设置 -> 连接与集成 -> AI 控制（CLI / MCP）
+      getControlStatus: () => Promise<ControlServerStatus>;
+      setControlEnabled: (enabled: boolean) => Promise<ControlServerStatus>;
+      regenerateControlToken: () => Promise<ControlServerStatus & { token: string }>;
       getStageStatus: () => Promise<StageStatus>;
       setStageEnabled: (enabled: boolean) => Promise<StageStatus>;
       regenerateStageToken: () => Promise<StageStatus>;

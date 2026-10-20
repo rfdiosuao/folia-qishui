@@ -5580,12 +5580,37 @@ async function setMainWindowTransparentModeFromRemote(enabled) {
   return setMainWindowTransparentMode(enabled, handoff);
 }
 
-// Local control server (control/PROTOCOL.md): off by default, started once after the first
-// createWindow() so the renderer bridge exists. Packaged builds need FOLIA_CONTROL=1 explicitly;
-// the dev server starts it unless FOLIA_CONTROL=0 opts out.
+// Local control server (control/PROTOCOL.md): the on/off switch lives in the settings store and is
+// editable from 设置 -> 连接与集成, so a packaged build no longer depends on FOLIA_CONTROL being in
+// the launch environment (macOS strips it when the app is started from Finder). The environment
+// only decides the initial value when nothing has been stored yet.
 let controlServer = null;
-const controlServerEnabled = process.env.FOLIA_CONTROL === '1'
-  || (process.env.ELECTRON_DEV === 'true' && process.env.FOLIA_CONTROL !== '0');
+const controlServerSettings = require('./controlServer.cjs');
+
+/** Starts the loopback control server; returns the instance or null. Never throws. */
+async function startControlServerInstance() {
+  try {
+    return await controlServerSettings.startControlServer({ app, getWindow: () => mainWindow });
+  } catch (error) {
+    // The control plane is optional: a failure here must never keep the app from starting.
+    console.warn('[Control] Failed to start control server:', error);
+    return null;
+  }
+}
+
+/** Turns the control server on or off and persists the choice; returns the fresh status. */
+async function setControlServerEnabled(enabled) {
+  store.set(controlServerSettings.ENABLED_SETTING_KEY, Boolean(enabled));
+  if (enabled) {
+    if (!controlServer) {
+      controlServer = await startControlServerInstance();
+    }
+  } else if (controlServer) {
+    await controlServer.stop();
+    controlServer = null;
+  }
+  return controlServerSettings.buildControlStatus(app.getPath('userData'), controlServer);
+}
 
 app.whenReady().then(async () => {
   applyTileMemoryBudget(app, screen);
@@ -5687,14 +5712,8 @@ app.whenReady().then(async () => {
     }
   }
   createWindow();
-  if (controlServerEnabled) {
-    try {
-      const { startControlServer } = require('./controlServer.cjs');
-      controlServer = await startControlServer({ app, getWindow: () => mainWindow });
-    } catch (error) {
-      // The control plane is optional: a failure here must never keep the app from starting.
-      console.warn('[Control] Failed to start control server:', error);
-    }
+  if (controlServerSettings.isControlServerEnabled(store)) {
+    controlServer = await startControlServerInstance();
   }
   focusMainWindow();
   if (process.env.FOLIA_PENDING_DESKTOP_LYRIC === '1') {
@@ -6858,6 +6877,24 @@ ipcMain.handle('voice-input-pause-get-status', (event) => {
   }
 
   return voiceInputPauseMonitor.getStatus();
+});
+
+// 设置 -> 连接与集成 -> AI 控制（CLI / MCP）：开关、状态、地址、令牌。
+ipcMain.handle('control-get-status', () => (
+  controlServerSettings.buildControlStatus(app.getPath('userData'), controlServer)
+));
+
+ipcMain.handle('control-set-enabled', async (_event, enabled) => setControlServerEnabled(enabled === true));
+
+ipcMain.handle('control-regenerate-token', async () => {
+  const dataDir = app.getPath('userData');
+  const token = controlServerSettings.regenerateControlToken(dataDir);
+  if (controlServer) {
+    // The running server authenticated against the old token, so restart it with the new one.
+    await controlServer.stop();
+    controlServer = await startControlServerInstance();
+  }
+  return { ...controlServerSettings.buildControlStatus(dataDir, controlServer), token };
 });
 
 ipcMain.handle('stage-get-status', () => {
