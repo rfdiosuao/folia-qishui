@@ -9,9 +9,10 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
+import { gunzip } from "node:zlib";
+import { promisify } from "node:util";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 // Downloads one pinned Folia FFmpeg release asset for the Electron target and
@@ -75,13 +76,39 @@ const download = async (url, destination) => {
   await writeFile(destination, Buffer.from(await response.arrayBuffer()));
 };
 
-const extractArchive = (archive, destination) => {
-  const result = spawnSync("tar", ["-xzf", archive, "-C", destination], {
-    stdio: "inherit",
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0)
-    throw new Error(`tar failed with exit code ${result.status}`);
+// Unpacks a .tar.gz without shelling out to `tar`.
+//
+// The Windows runner's git-bash tar reads a `-C` path on another drive as a remote
+// host ("Cannot connect to C:"), because os.tmpdir() is C:\ while the workspace is
+// D:\. Node ignores TMPDIR on Windows (it calls GetTempPath), so no environment
+// fix helps. Extracting with zlib + a minimal tar reader is portable and removes
+// the external dependency entirely.
+const extractArchive = async (archive, destination) => {
+  const buffer = await readFile(archive);
+  const tar = await promisify(gunzip)(buffer);
+  await mkdir(destination, { recursive: true });
+
+  let offset = 0;
+  while (offset + 512 <= tar.length) {
+    const header = tar.subarray(offset, offset + 512);
+    if (header.every((byte) => byte === 0)) break; // two zero blocks end the archive
+
+    const name = header.toString("utf8", 0, 100).replace(/\0.*$/, "");
+    const sizeText = header.toString("utf8", 124, 136).replace(/\0.*$/, "").trim();
+    const size = parseInt(sizeText, 8) || 0;
+    const typeFlag = String.fromCharCode(header[156]);
+    offset += 512;
+
+    if (!name) continue;
+    const target = path.join(destination, name);
+    if (typeFlag === "5") {
+      await mkdir(target, { recursive: true });
+    } else if (typeFlag === "0" || typeFlag === "\0") {
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, tar.subarray(offset, offset + size));
+    }
+    offset += Math.ceil(size / 512) * 512;
+  }
 };
 
 /** Prepares the exact architecture directory consumed by the extraResources FileSet. */
@@ -129,7 +156,7 @@ export async function prepareBundledFfmpeg({
       );
     }
 
-    extractArchive(archivePath, temporaryRoot);
+    await extractArchive(archivePath, temporaryRoot);
     const archiveRoot = path.join(
       temporaryRoot,
       asset.archive.slice(0, -".tar.gz".length),
