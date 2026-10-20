@@ -91,8 +91,21 @@ jobs:
       - name: Package Electron app
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        # electron-builder 只认 mac / win / linux，不是 process.platform 的 darwin / win32
-        run: npx electron-builder --${{ matrix.builder }} dir --${{ matrix.arch }} --publish never
+        # electron-builder 只认 mac / win / linux，不是 process.platform 的 darwin / win32。
+        # macOS 用 dir（dmg/zip 在下一步单独打）；Windows 的 dir 目标不解出 NSIS 安装程序，
+        # 所以直接打 nsis 目标拿 .exe。
+        run: |
+          if [ "${{ matrix.builder }}" = "win" ]; then
+            npx electron-builder --win nsis --${{ matrix.arch }} --publish never
+          else
+            npx electron-builder --mac dir --${{ matrix.arch }} --publish never
+          fi
+
+      - name: Package macOS distributables
+        if: runner.os == 'macOS'
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --mac dmg zip --${{ matrix.arch }} --publish never
 
       - name: Collect artifacts
         shell: bash
@@ -100,8 +113,7 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts
           if [ "${{ runner.os }}" = "macOS" ]; then
-            cp -R "release/mac-${{ matrix.arch }}/Folia.app" "artifacts/Folia-${{ matrix.arch }}.app" 2>/dev/null || true
-            for f in release/*.dmg release/*.zip; do
+            for f in release/*.dmg release/*.zip release/*.blockmap; do
               [ -e "$f" ] && cp "$f" artifacts/ || true
             done
           else
@@ -109,6 +121,7 @@ jobs:
               [ -e "$f" ] && cp "$f" artifacts/ || true
             done
           fi
+          test -n "$(ls -A artifacts)" || { echo "no artifacts collected"; exit 1; }
           ls -la artifacts
 
       - name: Upload artifacts
