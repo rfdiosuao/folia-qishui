@@ -8,6 +8,8 @@ import {
     optionalInteger,
 } from '../errors';
 import {
+    resolvePlayView,
+    withControlPlayView,
     resolveSongArgument,
     resolveSongListArgument,
     searchItemToSong,
@@ -51,9 +53,12 @@ export const queueHandlers: Record<string, ControlHandler> = {
         }
         const song = state.playQueue[index]!;
         // CommandPalettePlaybackContext.playSong is (song, queue?); the App's FM flag is not part
-        // of the palette contract, so queue play does not pass it.
-        await deps.context.playback.playSong(song, state.playQueue);
-        return { index, song: summarizeSong(song) };
+        // of the palette contract, so queue play does not pass it. The view override keeps the
+        // same rule as folia_play: jumping the queue from outside lands on the player unless the
+        // caller asked otherwise.
+        const view = resolvePlayView(args.view) ?? 'player';
+        await withControlPlayView(view, () => deps.context.playback.playSong(song, state.playQueue));
+        return { index, view, song: summarizeSong(song) };
     },
 
     folia_queue_add: async (args, deps) => {

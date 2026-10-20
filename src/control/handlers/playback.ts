@@ -20,6 +20,8 @@ import {
     findLocalSong,
     mapOnlineError,
     playResolvedSong,
+    resolvePlayView,
+    withControlPlayView,
     readVolume,
     resolveSongArgument,
     searchItemToSong,
@@ -77,8 +79,9 @@ export const playbackHandlers: Record<string, ControlHandler> = {
             });
         }
         const song = await searchItemToSong(deps, item);
-        await playResolvedSong(deps, song);
-        return { query, index, song: summarizeSong(song) };
+        const view = resolvePlayView(args.view) ?? 'player';
+        await playResolvedSong(deps, song, view);
+        return { query, index, view, song: summarizeSong(song) };
     },
 
     folia_play: async (args, deps) => {
@@ -88,20 +91,23 @@ export const playbackHandlers: Record<string, ControlHandler> = {
         const providerSongId = typeof args.id === 'string' || typeof args.id === 'number' ? String(args.id) : undefined;
         const index = optionalInteger(args.index, 'index') ?? 0;
         const replaceQueue = args.queue === true;
+        // AI/CLI 放歌默认落到播放页：那里才有歌词动画。用户把「按下播放后打开哪个界面」设成
+        // 留在原处时，`playSong` 内部不会跳转，从命令行放歌就会看起来「没反应」。
+        const view = resolvePlayView(args.view) ?? 'player';
 
         if (localId !== undefined) {
             const local = findLocalSong(deps, localId);
             if (!local) {
                 throw new ControlError('no_song', `Local song "${localId}" is not in the library`);
             }
-            await deps.playLocalSong(local);
-            return { local: true, queued: false, song: summarizeLocalSong(local) };
+            await withControlPlayView(view, () => deps.playLocalSong(local));
+            return { local: true, queued: false, view, song: summarizeLocalSong(local) };
         }
 
         if (args.song !== undefined) {
             const song = await resolveSongArgument(deps, args.song);
-            await playResolvedSong(deps, song);
-            return { local: false, queued: false, song: summarizeSong(song) };
+            await playResolvedSong(deps, song, view);
+            return { local: false, queued: false, view, song: summarizeSong(song) };
         }
 
         if (query !== undefined) {
@@ -125,11 +131,11 @@ export const playbackHandlers: Record<string, ControlHandler> = {
                 for (const candidate of outcome.items) {
                     queueSongs.push(await searchItemToSong(deps, candidate));
                 }
-                await deps.context.playback.playSong(song, queueSongs);
+                await withControlPlayView(view, () => deps.context.playback.playSong(song, queueSongs));
             } else {
-                await playResolvedSong(deps, song);
+                await playResolvedSong(deps, song, view);
             }
-            return { local: false, queued: replaceQueue, song: summarizeSong(song) };
+            return { local: false, queued: replaceQueue, view, song: summarizeSong(song) };
         }
 
         if (provider !== undefined && providerSongId !== undefined) {
@@ -140,8 +146,8 @@ export const playbackHandlers: Record<string, ControlHandler> = {
                     id: providerSongId,
                 });
             }
-            await playResolvedSong(deps, detail);
-            return { local: false, queued: false, song: summarizeSong(detail) };
+            await playResolvedSong(deps, detail, view);
+            return { local: false, queued: false, view, song: summarizeSong(detail) };
         }
 
         throw new ControlError(

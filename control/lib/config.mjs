@@ -45,6 +45,7 @@ const VALUE_OPTIONS = new Map([
     ['--group', 'group'],
     ['--interval', 'interval'],
     ['--anchor', 'anchor'],
+    ['--view', 'view'],
 ]);
 
 /** Boolean switches; every one of them is optional and defaults to false. */

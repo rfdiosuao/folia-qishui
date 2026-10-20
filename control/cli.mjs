@@ -46,7 +46,7 @@ Commands:
   state                      Full state snapshot (add --lyrics for timed lines)
   tools [--group <g>]        List the control catalog tools
   search <query>             Search songs (--provider, --source, --limit, --offset)
-  play <query>               Search and play (--provider, --index)
+  play <query>               Search and play (--provider, --index, --view player|lattice|stay)
   play --id <id>             Play a provider/local song id (--provider)
   pause | resume | toggle | next | prev | stop
   seek <seconds|percent|mm:ss>

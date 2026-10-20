@@ -6,6 +6,7 @@ import { omni } from '../services/onlineMusic/omni';
 import { buildUnifiedLocalSong } from '../services/playbackAdapters';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { usePlaybackStore, selectDisplayPlayerState } from '../stores/usePlaybackStore';
+import { usePlaybackEntryViewStore } from '../stores/usePlaybackEntryViewStore';
 import { currentTime } from '../stores/motionSignals';
 import {
     getPlaybackSourceRef,
@@ -337,18 +338,49 @@ export const searchItemToSong = async (deps: ControlHandlerDeps, item: ControlSe
 };
 
 /** Plays a resolved song through the App's own playback path; local songs use onPlayLocalSong. */
+/**
+ * 放歌前先决定落在哪个界面。
+ *
+ * `playSong` 内部会读用户的「按下播放后打开哪个界面」偏好，选成 `stay` 时什么也不跳——从命令行
+ * 让 AI 放歌却看不到歌词动画，就是这个偏好挡住了。控制面默认显式落到播放页（那里才有动画），
+ * 调用方传 `view` 才按调用方的意思来。
+ */
+export type ControlPlayView = 'player' | 'lattice' | 'stay';
+
+export const resolvePlayView = (value: unknown): ControlPlayView | null => (
+    value === 'player' || value === 'lattice' || value === 'stay' ? value : null
+);
+
+/** 把控制面的落点写成一次性的偏好覆盖，避免改动用户的长期设置。 */
+export const withControlPlayView = async <T>(view: ControlPlayView, run: () => T | Promise<T>): Promise<T> => {
+    const store = usePlaybackEntryViewStore.getState();
+    const previous = store.playbackEntryView;
+    if (previous === view) {
+        return run();
+    }
+    store.setPlaybackEntryView(view);
+    try {
+        return await run();
+    } finally {
+        store.setPlaybackEntryView(previous);
+    }
+};
+
 export const playResolvedSong = async (
     deps: ControlHandlerDeps,
     song: SongResult,
+    view: ControlPlayView = 'player',
 ): Promise<void> => {
-    if (isLocalPlaybackSong(song)) {
-        const local = findLocalSong(deps, song.localRef.songId);
-        if (local) {
-            await deps.playLocalSong(local);
-            return;
+    await withControlPlayView(view, async () => {
+        if (isLocalPlaybackSong(song)) {
+            const local = findLocalSong(deps, song.localRef.songId);
+            if (local) {
+                await deps.playLocalSong(local);
+                return;
+            }
         }
-    }
-    await deps.context.playback.playSong(song);
+        await deps.context.playback.playSong(song);
+    });
 };
 
 export const playbackStateName = (state: PlayerState): ControlPlaybackState => {

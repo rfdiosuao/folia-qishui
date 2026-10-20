@@ -211,6 +211,7 @@ export const CONTROL_TOOLS = [
             index: int('Which result to play (0-based, default 0).', { minimum: 0 }),
             provider: str('Explicit provider id (default: active provider).'),
             source: str('"active" (default), "local" or "all".', { enum: ['active', 'local', 'all'] }),
+            view: str('Where to land after the song starts: "player" (default, the lyric visualizer), "lattice" (the wall), or "stay" (do not navigate). The user\'s own "open which view on play" setting does not apply to control calls.', { enum: ['player', 'lattice', 'stay'] }),
         }, ['query']),
     },
     {
@@ -232,6 +233,7 @@ export const CONTROL_TOOLS = [
             id: str('Provider-specific song id when resolving without a full song object.'),
             index: int('Result index used with `query` (default 0).', { minimum: 0 }),
             queue: bool('Replace the existing queue with the search results (default false: play the single song).'),
+            view: str('Where to land after the song starts: "player" (default, the lyric visualizer), "lattice" (the wall), or "stay" (do not navigate). The user\'s own "open which view on play" setting does not apply to control calls.', { enum: ['player', 'lattice', 'stay'] }),
         }),
     },
     {
@@ -369,6 +371,7 @@ export const CONTROL_TOOLS = [
         description: 'Plays a queue entry by index, keeping Personal FM semantics when FM is on.',
         inputSchema: obj({
             index: int('Queue index (0-based, from folia_queue).', { minimum: 0 }),
+            view: str('Where to land after the song starts: "player" (default, the lyric visualizer), "lattice" (the wall), or "stay" (do not navigate). The user\'s own "open which view on play" setting does not apply to control calls.', { enum: ['player', 'lattice', 'stay'] }),
         }, ['index']),
     },
     {

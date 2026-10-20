@@ -349,15 +349,17 @@ export function resolveCommand(parsed, config = {}) {
             return plan('folia_search', searchArgs);
         }
         case 'play': {
+            // --view 决定放歌后落到哪个界面；不传就是 player（播放页，那里有歌词动画）。
+            const viewArgs = options.view ? { view: String(options.view) } : {};
             if (options.id) {
-                const playArgs = { id: options.id };
+                const playArgs = { id: options.id, ...viewArgs };
                 if (options.provider) {
                     playArgs.provider = options.provider;
                 }
                 return plan('folia_play', playArgs);
             }
             requireArgs(args, 1, 'folia play <query> | folia play --id <song-id>');
-            const playArgs = { query: collectText(args) };
+            const playArgs = { query: collectText(args), ...viewArgs };
             if (options.provider) {
                 playArgs.provider = options.provider;
             }
