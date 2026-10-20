@@ -72,6 +72,14 @@ jobs:
         if: runner.os == 'Windows'
         run: npm run build:wallpaper-helper
 
+      # ffmpeg 的下载+解压在 Windows runner 上会被 git-bash 的 tar 解析盘符路径绊倒
+      # （"-C C:\..." 被当成远程主机），所以和 MNN 一样预置缓存，让 beforePack 直接命中。
+      - name: Cache bundled FFmpeg
+        uses: actions/cache@v4
+        with:
+          path: build/ffmpeg
+          key: control-ffmpeg-${{ runner.os }}-${{ hashFiles('packaging/ffmpeg/fetch-ffmpeg.mjs') }}
+
       - name: Cache MNN runtime build
         uses: actions/cache@v4
         with:
@@ -92,6 +100,7 @@ jobs:
         shell: bash
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          TMPDIR: ${{ runner.temp }}
         # electron-builder 只认 mac / win / linux，不是 process.platform 的 darwin / win32。
         # macOS 用 dir（dmg/zip 在下一步单独打）；Windows 的 dir 目标不解出 NSIS 安装程序，
         # 所以直接打 nsis 目标拿 .exe。
