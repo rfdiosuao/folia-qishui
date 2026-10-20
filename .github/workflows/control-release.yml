@@ -147,6 +147,11 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      # gh release 需要 git 仓库上下文（否则 "fatal: not a git repository"）：
+      # 下载产物之前先检出，Resolve tag 才能读到 package.json。
+      - name: Check out repository
+        uses: actions/checkout@v4
+
       - name: Download all build artifacts
         uses: actions/download-artifact@v6
         with:
@@ -192,6 +197,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
           ARGS=(--title "Folia ${TAG#v} · CLI / MCP 控制平面" --target "$GITHUB_SHA" --notes-file release-notes.md)
