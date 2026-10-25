@@ -212,7 +212,7 @@ cd control && npm link    # 之后可以直接用 folia / folia-mcp
 | `doctor` | `/health` + `/tools` + 环境自检 | `/health`、`/tools` |
 | `search <q>` | 搜索；`--provider`、`--source`、`--limit`、`--offset` | `folia_search` |
 | `play <q>` | 搜索并播放第一条 | `folia_play_search` |
-| `play --id <id>` | 按 provider 歌曲 id 播放 | `folia_play` |
+| `play --provider <provider> --id <id>` | 按在线歌曲 id 播放，--provider 必填；本地用 `library play <id>` | `folia_play` |
 | `pause` / `resume` / `toggle` / `next` / `prev` / `stop` | 传输控制（`stop` 会暂停；非 FM 模式还会清空队列） | `folia_transport` |
 | `seek <sec\|%\|mm:ss>` | 按秒、百分比或 `mm:ss` 跳转；暂停时会恢复播放 | `folia_seek` |
 | `volume [level]` | 读/设音量 0-100；`--delta <n>` 相对调整 | `folia_volume` |
@@ -591,8 +591,8 @@ folia() { node control/cli.mjs "$@" --url "$FOLIA_URL" --token-file "$FOLIA_TOKE
 ```bash
 folia status --json                 # 1. 先确认连上、当前 provider 和播放状态
 folia providers --json              # 2. 看哪个平台可用/已登录
-folia search "周杰伦 晴天" --limit 5 --json   # 3. 取结构化结果，挑第 index 条
-folia play --id 123456              # 4. 按平台 id 播放；或 folia play "周杰伦 晴天"
+folia search "周杰伦 晴天" --provider netease --limit 5 --json   # 3. 取结构化结果，挑第 index 条
+folia play --provider netease --id 123456              # 4. 按平台 id 播放；或 folia play "周杰伦 晴天"
 folia volume 35                     # 5. 调音量
 folia volume --json                 # 6. 回读，确认 percent=35（level=0.35）
 ```
@@ -704,3 +704,5 @@ FOLIA_E2E_SKIP_PLAYBACK=1 node control/test/e2e.mjs   # 跳过需要账号/网�
 | [`electron/controlServer.cjs`](../electron/controlServer.cjs) | Electron 主进程 HTTP / MCP server |
 | [`docs/control-api.md`](../docs/control-api.md) | 二次开发说明 |
 | [`skills/control-folia`](../skills/control-folia/SKILL.md) | 给 Agent 的精简操作手册 |
+
+搜索结果的 VERSION 当前明确显示 unknown：现有 provider 规范没有可靠的原唱/翻唱字段，不根据标题或歌手猜测。新 bridge 的每个搜索结果带 `recordingVersion: "unknown"`；`--json` 保留服务端原始返回。

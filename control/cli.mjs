@@ -12,7 +12,7 @@ import {
 } from '../shared/controlCatalog.mjs';
 import { UsageError, discoverLocalControl, loadConfig, parseArgv } from './lib/config.mjs';
 import { createTransport, TransportError } from './lib/transport.mjs';
-import { resolveCommand } from './lib/commands.mjs';
+import { resolveCommand, validateCommandUsage } from './lib/commands.mjs';
 import {
     describeEnvelopeError,
     describeTransportError,
@@ -47,7 +47,9 @@ Commands:
   tools [--group <g>]        List the control catalog tools
   search <query>             Search songs (--provider, --source, --limit, --offset)
   play <query>               Search and play (--provider, --index, --view player|lattice|stay)
-  play --id <id>             Play a provider/local song id (--provider)
+  play --provider <provider> --id <id>
+                             Play an online song ID; --provider is required
+                             Local IDs: library play <id>
   pause | resume | toggle | next | prev | stop
   seek <seconds|percent|mm:ss>
   volume [level] | volume --delta <n> | mute [on|off]
@@ -399,6 +401,7 @@ export async function main(argv = process.argv.slice(2), { stdout = process.stdo
 
     let config;
     try {
+        validateCommandUsage(parsed);
         config = loadConfig(parsed);
     } catch (error) {
         return reportUsageError(error, { stderr });

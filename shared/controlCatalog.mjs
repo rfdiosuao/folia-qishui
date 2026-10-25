@@ -186,7 +186,8 @@ export const CONTROL_TOOLS = [
             + 'returns normalised results. Each result carries `index` and is directly usable as the `song` argument of '
             + 'folia_play / folia_queue_add. Provider ids come from folia_providers (e.g. qishui, netease, kugou, qq, '
             + 'bodian, ytm, spotify). Search needs no login for most providers, but playback of account-restricted '
-            + 'songs does.',
+            + 'songs does. recordingVersion is currently unknown: normalized provider metadata does not verify '
+            + 'original/cover status. Never infer that status from song or artist names.',
         inputSchema: obj({
             query: str('Search text (song title, artist, album).'),
             source: str('"active" (default), "local", "all", or an online provider id.', {

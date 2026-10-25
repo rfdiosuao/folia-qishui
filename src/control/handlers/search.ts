@@ -27,7 +27,8 @@ export const searchHandlers: Record<string, ControlHandler> = {
             offset,
             total: outcome.total,
             hasMore: outcome.hasMore,
-            items: outcome.items.map(item => ({ index: item.index, ...item.summary })),
+            // SongResult has no verified original/cover metadata; names are not evidence.
+            items: outcome.items.map(item => ({ index: item.index, ...item.summary, recordingVersion: 'unknown' })),
         };
     },
 };

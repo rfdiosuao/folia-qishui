@@ -1162,3 +1162,34 @@ test('MCP stdio server exposes folia_eval only with --allow-eval', async () => {
         await stub.close();
     }
 });
+
+test('FOLIA-HELP-01 rejects online IDs without a provider before config or transport work', async () => {
+    assert.throws(() => planFor(['play', '--id', 'song-9']), error => error instanceof UsageError && /--provider/.test(error.message));
+    assert.throws(() => planFor(['play', '--id', 'song-9', '--provider', '   ']), UsageError);
+    assert.throws(() => planFor(['play', '--id', '', '--provider', 'qishui']), UsageError);
+    const result = await runNode(CLI, ['play', '--id', 'song-9', '--url', 'http://127.0.0.1:1', '--token-file', '/missing-folia-token']);
+    assert.equal(result.code, 2);
+    assert.match(result.stderr, /play --id requires --provider/);
+    assert.doesNotMatch(result.stderr, /ENOENT|connection_failed/);
+    assert.deepEqual(planFor(['library', 'play', 'local-9']), { tool: 'folia_library', args: { action: 'play', id: 'local-9' } });
+});
+
+test('FOLIA-HELP-01 help names the required provider and local playback route', async () => {
+    const result = await runNode(CLI, ['--help']);
+    assert.equal(result.code, 0);
+    assert.match(result.stdout, /play --provider <provider> --id <id>/);
+    assert.match(result.stdout, /--provider is required/);
+    assert.match(result.stdout, /library play <id>/);
+});
+
+test('FOLIA-HELP-01 search version is explicitly unknown and is never guessed from names', () => {
+    const data = { items: [
+        { title: 'Song (Original)', artist: 'Original Artist', providerId: 'qishui' },
+        { title: 'Song (Cover)', artist: 'Cover Artist', providerId: 'qishui' },
+    ] };
+    const rendered = formatSearchResults(data);
+    assert.match(rendered, /VERSION/);
+    assert.equal(rendered.split('\n').filter(line => /unknown\s*$/.test(line)).length, 2);
+    assert.match(rendered, /not supplied by the provider/);
+    assert.deepEqual(JSON.parse(formatToolResult('folia_search', data, { json: true })), data);
+});

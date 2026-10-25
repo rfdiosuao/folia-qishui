@@ -216,8 +216,9 @@ export function formatSearchResults(data) {
         song?.album ?? '',
         formatDuration(song?.durationMs ?? song?.duration),
         song?.providerId ?? song?.provider ?? song?.source ?? '',
+        'unknown',
     ]);
-    return `${headingParts.join(' ')}\n${renderTable(['#', 'TITLE', 'ARTIST', 'ALBUM', 'TIME', 'PROVIDER'], rows)}`;
+    return `${headingParts.join(' ')}\n${renderTable(['#', 'TITLE', 'ARTIST', 'ALBUM', 'TIME', 'PROVIDER', 'VERSION'], rows)}\nVERSION unknown: original/cover metadata is not supplied by the provider contract; do not infer it from names.`;
 }
 
 /** `folia_queue` table with a marker for the current entry. */
