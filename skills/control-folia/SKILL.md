@@ -73,7 +73,7 @@ node control/cli.mjs status --transport cdp --cdp http://127.0.0.1:9222
 | --- | --- |
 | 连接自检、看状态 | `folia status`、`folia state`、`folia tools`、`folia doctor` |
 | 搜歌 | `folia search "<q>" --limit 5 --json` → `folia_search` |
-| 播放 | `folia play "<q>"`；`folia play --id <id>`；会话恢复用 `folia resume` |
+| 播放 | `folia play "<q>"`；`folia play --provider <provider> --id <id>`；会话恢复用 `folia resume` |
 | 传输 | `folia pause/resume/toggle/next/prev/stop` → `folia_transport` |
 | 跳转/音量/静音 | `folia seek 90`、`folia seek 50%`、`folia volume 35`、`folia mute on` |
 | 循环/随机/喜欢/定时关闭 | `folia loop one`、`folia shuffle`、`folia like`、`folia sleep 30` |
@@ -99,8 +99,8 @@ node control/cli.mjs status --transport cdp --cdp http://127.0.0.1:9222
 ```bash
 folia status --json                    # 1. 确认连上，记下当前 provider
 folia providers --json                 # 2. 看平台是否可用/已登录
-folia search "周杰伦 晴天" --limit 5 --json   # 3. 取结构化结果
-folia play --id 123456                 # 4. 播放（或 folia play "周杰伦 晴天"）
+folia search "周杰伦 晴天" --provider netease --limit 5 --json   # 3. 取结构化结果
+folia play --provider netease --id 123456                 # 4. 播放（或 folia play "周杰伦 晴天"）
 folia volume 35                        # 5. 调音量
 folia volume --json                    # 6. 回读确认 level=35
 ```

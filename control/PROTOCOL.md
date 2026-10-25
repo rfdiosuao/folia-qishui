@@ -290,7 +290,7 @@ folia <command> [args] [options]
 |---|---|
 | `folia status` / `state` / `tools` | folia_status / folia_state / folia_tools |
 | `folia search <q>` | folia_search（--provider/--source/--limit/--offset） |
-| `folia play <q>` / `folia play --id <id>` | folia_play_search / folia_play |
+| `folia play <q>` / `folia play --provider <provider> --id <id>` | folia_play_search / folia_play |
 | `folia pause` `resume` `toggle` `next` `prev` `stop` | folia_transport |
 | `folia seek <sec|%>` | folia_seek |
 | `folia volume [level]` `mute [on|off]` | folia_volume |
@@ -381,3 +381,7 @@ visualizer set 回读、settings read/write、screenshot 落盘、MCP initialize
   `folia_eval` 必须服务端 `--allow-eval` / `FOLIA_CONTROL_ALLOW_EVAL=1` 才可用（bridge 返回 `disabled` 由 server 判定）。
 - `folia_quit` 必须 `confirm:true`。
 - 文档明确：控制 server 等同于本机用户权限，勿在不可信机器开启。
+
+## FOLIA-HELP-01 search metadata
+
+`folia_search.items[]` adds `recordingVersion: "unknown"`. Current normalized provider contracts have no verified original/cover field. This status is not inferred from title, artist, album, aliases or cover art. The human CLI shows unknown for older servers too; raw JSON is unchanged. Online `play --id` requires a nonempty explicit `--provider` before configuration or transport work. Local IDs use `library play`.

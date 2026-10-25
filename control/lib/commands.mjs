@@ -285,7 +285,18 @@ function visualPlan(args) {
  * - `{ special, ... }`: client-side behaviour (`help`, `version`, `mcp`, `doctor`,
  *   `events-watch`, `mute-toggle`, `call-stdin`, `eval-stdin`).
  */
+/** Validate ID playback before reading connection configuration or invoking any tool. */
+export function validateCommandUsage(parsed) {
+    if (parsed.command !== 'play' || parsed.options.id === undefined) return;
+    if (!String(parsed.options.id).trim()) throw new UsageError('play --id requires a nonempty song ID');
+    if (typeof parsed.options.provider !== 'string' || !parsed.options.provider.trim()) {
+        throw new UsageError('play --id requires --provider <provider>',
+            'use folia providers, then folia play --provider <provider> --id <id>; for local files use folia library play <id>');
+    }
+}
+
 export function resolveCommand(parsed, config = {}) {
+    validateCommandUsage(parsed);
     const command = parsed.command;
     const args = parsed.args ?? [];
     const options = parsed.options ?? {};
